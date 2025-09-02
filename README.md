@@ -1,185 +1,66 @@
-![hero](Github.png)
+Omniplex Internship Assignment - Summary of Work
+Submitted by: Atharv Kishor
+Deployment Link: https://omniplex-assignment-ten.vercel.app/
 
-<p align="center">
-	<h1 align="center"><b>Omniplex</b></h1>
-<p align="center">
-    Open-Source Perplexity
-    <br />
-    <br />
-    <a href="https://omniplex.ai">Website</a>
-    ·
-    <a href="https://discord.gg/87Mh7q5ZSd">Discord</a>
-    ·
-    <a href="https://www.reddit.com/r/omniplex_ai">Reddit</a>
-  </p>
-</p>
+This document outlines the tasks completed for the Omniplex internship assignment. The primary goals were to set up the project locally, integrate Stripe for payments, and deploy the application. Along the way, several bugs and environmental challenges were identified and resolved.
 
-# :construction: Under Active Development
+1. Local Setup & API Configuration
+The first challenge was getting the application to run locally due to its dependency on numerous external APIs.
 
-> Our focus is on establishing core functionality and essential features. As we continue to develop Omniplex, we are committed to implementing best practices, refining the codebase, and introducing new features to enhance the user experience.
+Issue: The project required API keys from services like OpenAI, Bing Search, OpenWeatherMap, Alpha Vantage, and Finnhub. The application would not start without them.
 
-## Get started
+Solution:
 
-To run the project, modify the code in the Chat component to use the `// Development Code`.
+Created free-tier accounts for all required services to obtain the necessary API keys.
 
-1. Fork & Clone the repository
+Established a .env.local file to manage all secret keys, preventing them from being committed to version control.
 
-```bash
-git clone git@github.com:[YOUR_GITHUB_ACCOUNT]/omniplex.git
-```
+Restarted the development server to ensure the new environment variables were loaded correctly.
 
-2. Install the dependencies
+Issue: OpenAI API Blocker
 
-```bash
-yarn
-```
+The core functionality of the app was blocked by the requirement for a paid OpenAI API key.
 
-3. Fill out secrets in `.env.local`
+Solution: To keep the application functional without incurring costs, I implemented a mock API strategy. I modified two key backend routes (/api/tools/route.ts and /api/chat/route.ts) to simulate the expected responses from OpenAI. The tools route now uses simple keyword detection to select a function, and the chat route returns a hardcoded streaming response. This allowed the rest of the application's logic to proceed as expected.
 
-```bash
-BING_API_KEY=
-OPENAI_API_KEY=
+2. In-App and API Integration Bugs
+Once the app was running, several runtime errors occurred when interacting with the integrated APIs.
 
-OPENWEATHERMAP_API_KEY=
-ALPHA_VANTAGE_API_KEY=
-FINNHUB_API_KEY=
-```
+Issue: 500 Internal Server Error for Weather API
 
-4. Run the development server
+When prompting for weather, the application would crash. The terminal log showed an error: OpenWeatherMap API key is undefined.
 
-```bash
-yarn dev
-```
+Solution: This was traced back to the backend not having access to the environment variables. Creating the .env.local file and restarting the server resolved this.
 
-5. Open [http://localhost:3000](http://localhost:3000) in your browser to see the app.
+Issue: 401 Unauthorized for Weather API
 
-## Plugins Development
+Even with the correct key, the weather API returned a 401 error.
 
-> This is just a hacky way but very easy to implement. We will be adding a more robust way to add plugins in the future. Feel free to understand from the sample plugin we have added.
+Solution: Research indicated that new OpenWeatherMap API keys require a brief activation period and sometimes email verification. After waiting and ensuring the account was verified, the API calls succeeded.
 
-1. Update the types in `types.ts` to include the new plugin data types.
-2. Update the `tools` api in `api` to include the new plugin function call.
-3. Update the `api.ts` in `utils` file to include the new plugin data.
-4. Update the `chatSlice.ts` in `store` to include the new plugin reducer.
-5. Create a new folder in the `components` directory for the UI of the plugin.
-6. Update the `chat.tsx` to handle the new plugin in `useEffect`.
-7. Call the plugin function and return the data as props to source.
-8. Update the `source.ts` to use the plugin UI.
-9. Lastly Update the `data.ts` in `utils` to show in the plugin tab.
+Issue: Stripe Integration Failures
 
-## Multi-LLM Support: Example
+StripeAuthenticationError: The initial attempt to create a checkout session resulted in a 401 error, indicating the API key was not being provided.
 
-1. Add the new LLM apiKey in env and add the related npm package.
+No such price Error: After fixing the authentication, Stripe returned a 400 error, stating the Price ID was invalid.
 
-```bash
-ANTHROPIC_API_KEY=******
-```
+Solution: Both issues were related to environment variable management. I systematically re-copied both the Secret Key (sk_test_...) and the Price ID (price_...) directly from the Stripe Sandbox dashboard, ensuring they were both from the correct "Test mode" environment. A final server restart synchronized these values and fixed the payment flow.
 
-2. Update the `chat` in `api`
+3. Deployment Challenges
+The final task of deploying the application presented its own set of platform-specific challenges.
 
-```ts
-import Anthropic from "@anthropic-ai/sdk";
-import { OpenAIStream, StreamingTextResponse } from "ai";
+Issue: Azure Deployment Blocked
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
-});
+The initial deployment attempt to a free Azure account failed with a DenyAssignmentAuthorizationFailed error.
 
-export const runtime = "edge";
+Analysis: The error log indicated a subscription-level security policy [UNUSUALACTIVITY] FULL DENY ASSIGNMENT was automatically applied to the account, blocking the creation of new resources. This was an account-level lock from Microsoft and could not be resolved through configuration changes.
 
-export async function POST(req: Request) {
-  const {
-    messages,
-    model,
-    temperature,
-    max_tokens,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-  } = await req.json();
+Solution: Strategic Pivot to Vercel To meet the assignment's goal of a live deployment, I pivoted to Vercel, the platform created by the developers of Next.js. This demonstrated adaptability in the face of an external blocker.
 
-  const response = await anthropic.messages.create({
-    stream: true,
-    model: model,
-    temperature: temperature,
-    max_tokens: max_tokens,
-    top_p: top_p,
-    frequency_penalty: frequency_penalty,
-    presence_penalty: presence_penalty,
-    messages: messages,
-  });
+Issue: Vercel Build Failure
 
-  const stream = OpenAIStream(response);
-  return new StreamingTextResponse(stream);
-}
-```
+The first Vercel deployment failed during the build step with a strict linting error: react/no-unescaped-entities.
 
-3. Update the `data` in `utils`
+Solution: I identified that an unescaped apostrophe in the payment cancellation page (/payment/cancel/page.tsx) was violating the production build rules. I corrected this by replacing ' with its HTML entity equivalent, &apos;. After committing this fix, the Vercel deployment completed successfully.
 
-```ts
-export const MODELS = [
-  { label: "Claude 3 Haiku", value: "claude-3-haiku-20240307" },
-  { label: "Claude 3 Sonnet", value: "claude-3-sonnet-20240229" },
-  { label: "Claude 3 Opus", value: "claude-3-opus-20240229" },
-];
-```
-
-## Disclaimer
-
-> We recently transitioned from the pages directory to the app directory, which involved significant changes to the project structure and architecture. As a result, you may encounter some inconsistencies or rough edges in the codebase.
-
-### Roadmap
-
-- [x] Images & Videos for Search
-- [x] Upload for Vision Model
-- [x] Chat History for Users
-- [x] Shared Chats & Fork
-- [x] Settings for LLMs
-- [x] Custom OG Metadata
-- [x] Faster API Requests
-- [x] Allow Multiple LLMs
-- [x] Plugin Development
-- [x] Function Calling with Gen UI
-
-### App Architecture
-
-- Language: TypeScript
-- Frontend Framework: React
-- State Management: Redux
-- Web Framework: Next.js
-- Backend and Database: Firebase
-- UI Library: NextUI & Tremor
-- CSS Framework: TailwindCSS
-- AI SDK: Vercel AI SDK
-
-### Services
-
-- LLM: OpenAI
-- Search API: Bing
-- Weather API: OpenWeatherMap
-- Stocks API: Alpha Vantage & Finnhub
-- Dictionary API: WordnikFree Dictionary API
-- Hosting & Analytics: Vercel
-- Authentication, Storage & Database: Firebase
-
-## Contributing
-
-We welcome contributions from the community! If you'd like to contribute to Openpanel, please follow these steps:
-
-1. Fork the repository
-2. Create a new branch for your feature or bug fix
-3. Make your changes and commit them with descriptive messages
-4. Push your changes to your forked repository
-5. Submit a pull request to the main repository
-
-Please ensure that your code follows our coding conventions and passes all tests before submitting a pull request.
-
-## License
-
-This project is licensed under the [AGPL-3.0 license](LICENSE).
-
-## Contact
-
-If you have any questions or suggestions, feel free to reach out to us at [Contact](https://bishalsaha.com/contact).
-
-Happy coding! 🚀
+This assignment was a valuable exercise in real-world development, from initial setup and debugging to deployment and overcoming platform-specific hurdles.
