@@ -31,7 +31,7 @@ export default function PaymentCancelPage() {
       </svg>
       <h1 style={{ fontSize: '2.5rem', fontWeight: 'bold', color: '#111827' }}>Payment Canceled</h1>
       <p style={{ fontSize: '1.125rem', color: '#4b5563', marginTop: '1rem', maxWidth: '400px' }}>
-        Your payment was not processed. You can return to the chat and try again whenever you're ready.
+        Your payment was not processed. You can return to the chat and try again whenever you`&apos;`re ready.
       </p>
       <Link href="/" style={{
         marginTop: '2.5rem',
